@@ -1,0 +1,8 @@
+<!doctype html><meta charset="utf-8"><title>界面素材</title>
+<style>body{margin:0;padding:10px;background:#1a1d2e;color:#ccc;font:11px sans-serif;display:flex;flex-wrap:wrap;gap:8px;align-content:flex-start}
+figure{margin:0;background:repeating-conic-gradient(#2a2e44 0 25%,#20233a 0 50%) 0 0/16px 16px;padding:4px;text-align:center}
+img{display:block;height:var(--h,110px)}figcaption{padding-top:2px}</style>
+<script>
+const groups=[[110,'badge_cost badge_atk badge_hp badge_armor kw_rush kw_pierce kw_lifesteal theme_icon theme_mech theme_ink theme_lava theme_goth theme_rust icon_deck icon_hand icon_turn corner_angel corner_demon'],[150,'crest_angel crest_demon crest_dusk result_victory result_defeat logo_emblem btn_primary btn_secondary panel_frame'],[40,'divider'],[330,'frame_angel frame_demon keyart']];
+for(const [h,names] of groups) for(const n of names.split(' ')) document.write(`<figure style="--h:${h}px"><img src="/ui/${n}.png"><figcaption>${n}</figcaption></figure>`);
+</script>

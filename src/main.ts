@@ -45,14 +45,17 @@ function cardEl(card: CardDef): HTMLDivElement {
   const el = document.createElement('div');
   el.className = `card theme-${card.theme} faction-${card.faction}`;
   el.innerHTML = `
-    <div class="card-art"><img src="/cards/${card.id}.jpg" alt="${card.name}" draggable="false"></div>
-    <div class="card-cost">${card.cost}</div>
-    <div class="card-faction">${card.faction === 'angel' ? '天使' : '恶魔'}</div>
-    <div class="card-body">
-      <div class="card-head"><div class="card-name">${card.name}</div><div class="card-tag">${THEME_INFO[card.theme].name}</div></div>
+    <div class="card-in">
+      <div class="card-art"><img src="/cards/${card.id}.jpg" alt="${card.name}" draggable="false"></div>
+      <div class="card-frame"></div>
+      <div class="card-name">${card.name}</div>
       <div class="card-text">${cardText(card)}</div>
-    </div>
-    <div class="card-stats"><span class="atk">⚔ ${card.atk}</span><span class="hp">♥ ${card.hp}</span></div>`;
+      <div class="card-theme" style="background-image:url(/ui/theme_${card.theme}.png)" title="${THEME_INFO[card.theme].name}"></div>
+      <div class="badge cost"><b>${card.cost}</b></div>
+      <div class="badge atk"><b>${card.atk}</b></div>
+      <div class="badge hp"><b>${card.hp}</b></div>
+      ${card.armor ? `<div class="badge armor"><b>${card.armor}</b></div>` : ''}
+    </div>`;
   if (card.cost >= 5) el.classList.add('legend');
   // 悬停时跟着指针做 3D 倾斜，并把全息反光移到指针位置
   el.addEventListener('pointermove', (e) => {
@@ -129,6 +132,13 @@ function bondColor(def: BondDef): string {
   if (def.id === 'pandemonium') return '#ff5a4f';
   return '#b48cff';
 }
+/** 羁绊图标：同主题用主题纹章，混编叠两枚，纯阵营和黄昏契约用阵营徽记 */
+function bondIcon(def: BondDef): string {
+  if (def.themes.length === 1) return `<div class="bond-ico"><img src="/ui/theme_${def.themes[0]}.png" alt=""></div>`;
+  if (def.themes.length === 2) return `<div class="bond-ico two">${def.themes.map((t) => `<img src="/ui/theme_${t}.png" alt="">`).join('')}</div>`;
+  const crest = def.id === 'firmament' ? 'angel' : def.id === 'pandemonium' ? 'demon' : 'dusk';
+  return `<div class="bond-ico"><img src="/ui/crest_${crest}.png" alt=""></div>`;
+}
 const KIND_LABEL = { theme: '同主题', mixed: '混编', faction: '纯阵营' } as const;
 
 // ———————————————————— 渲染 ————————————————————
@@ -137,11 +147,17 @@ function hudHtml(player: PlayerId): string {
   const p = state.players[player];
   const hp = view.sanctum[player];
   const crystals = Array.from({ length: Math.max(view.maxEnergy[player], view.energy[player], 1) }, (_, i) => `<i class="${i < view.energy[player] ? 'on' : ''}"></i>`).join('');
+  const side = decks[player].side;
   return `
-    <div class="who">${player === 0 ? '你' : '对手'}<small>${decks[player].name}</small></div>
-    <div class="hp-bar side-${player}"><i style="width:${(hp / SANCTUM_HP) * 100}%"></i><span>圣所 ${hp} / ${SANCTUM_HP}</span></div>
-    <div class="energy" title="灵息">${crystals}<b>${view.energy[player]}/${view.maxEnergy[player]}</b></div>
-    <div class="stat">${player === 1 ? `手牌 <b>${p.hand.length}</b>　` : ''}牌库 <b>${p.deck.length}</b></div>`;
+    <div class="hud-crest side-${side}"><img src="/ui/crest_${side}.png" alt=""></div>
+    <div class="hud-main">
+      <div class="who">${player === 0 ? '你' : '对手'}<small>${decks[player].name}</small></div>
+      <div class="hp-bar side-${player}"><i style="width:${(hp / SANCTUM_HP) * 100}%"></i><span><small>圣所</small>${hp} / ${SANCTUM_HP}</span></div>
+      <div class="hud-row">
+        <div class="energy" title="灵息">${crystals}<b>${view.energy[player]}/${view.maxEnergy[player]}</b></div>
+        <div class="stat">${player === 1 ? `<img src="/ui/icon_hand.png" alt="手牌" title="手牌"><b>${p.hand.length}</b>` : ''}<img src="/ui/icon_deck.png" alt="牌库" title="牌库"><b>${p.deck.length}</b></div>
+      </div>
+    </div>`;
 }
 
 function renderHud(): void {
@@ -150,7 +166,8 @@ function renderHud(): void {
   const mine = state.current === 0;
   const info = $('#turn-info');
   info.className = state.winner !== null ? '' : mine ? 'mine' : 'theirs';
-  info.innerHTML = `<b>${state.winner !== null ? '对局结束' : mine ? '你的回合' : '对手回合'}</b><span class="stat">第 ${Math.ceil(state.turn / 2)} 轮（上限 ${TURN_LIMIT / 2} 轮）</span>`;
+  info.className = `panel plain ${info.className}`;
+  info.innerHTML = `<b><img src="/ui/icon_turn.png" alt="">${state.winner !== null ? '对局结束' : mine ? '你的回合' : '对手回合'}</b><span class="stat">第 ${Math.ceil(state.turn / 2)} 轮（上限 ${TURN_LIMIT / 2} 轮）</span>`;
   ($('#btn-end') as HTMLButtonElement).disabled = busy || !mine || state.winner !== null;
 }
 
@@ -202,8 +219,8 @@ function bondEl(def: BondDef, sig: string[], counts: ReturnType<typeof countMemb
     else count = `天使 ${counts.angel} · 恶魔 ${counts.demon}`;
   }
   el.innerHTML =
-    `<div class="bond-head"><span class="bond-name">${def.name}${tier > 0 && def.tiers.length > 1 ? ' ' + ROMAN[tier] : ''}</span><span class="bond-kind">${KIND_LABEL[def.kind]}</span><span class="bond-count">${count}</span></div>` +
-    def.tiers.map((t, i) => `<div class="bond-tier ${i < tier ? 'on' : ''}"><em>${t.need}：</em>${t.text}</div>`).join('');
+    `${bondIcon(def)}<div class="bond-main"><div class="bond-head"><span class="bond-name">${def.name}${tier > 0 && def.tiers.length > 1 ? ' ' + ROMAN[tier] : ''}</span><span class="bond-kind">${KIND_LABEL[def.kind]}</span><span class="bond-count">${count}</span></div>` +
+    def.tiers.map((t, i) => `<div class="bond-tier ${i < tier ? 'on' : ''}"><em>${t.need}：</em>${t.text}</div>`).join('') + '</div>';
   return el;
 }
 
@@ -316,7 +333,7 @@ async function handle(e: GameEvent): Promise<void> {
         const t = def.tiers[Number(tier) - 1];
         const label = `${def.name}${def.tiers.length > 1 ? ' ' + ROMAN[Number(tier)] : ''}`;
         freshBonds.add(`${e.player}:${id}`);
-        toast(`${who(e.player)}的羁绊生效 · <b>${label}</b><br>${t.text}`, bondColor(def));
+        toast(`${bondIcon(def)}<div>${who(e.player)}的羁绊生效 · <b>${label}</b><br>${t.text}</div>`, bondColor(def));
         log(`${who(e.player)}的羁绊生效：${label} — ${t.text}`, e.player === 0 ? 'me' : 'foe');
         field.bondFlash(e.player, parseInt(bondColor(def).slice(1), 16));
       }
@@ -325,7 +342,7 @@ async function handle(e: GameEvent): Promise<void> {
         // 升档时旧档位会出现在 lost 里，不算中断
         if (e.gained.some((g) => g.startsWith(id + ':') && Number(g.split(':')[1]) > Number(tier))) continue;
         const def = BOND_BY_ID[id];
-        toast(`${who(e.player)}的羁绊中断 · <b>${def.name}</b>`, '#7a809c', true);
+        toast(`${bondIcon(def)}<div>${who(e.player)}的羁绊中断 · <b>${def.name}</b></div>`, '#7a809c', true);
         log(`${who(e.player)}的羁绊中断：${def.name}`, 'sys');
       }
       break;
@@ -444,11 +461,32 @@ function bondChips(ids: string[]): string {
   return ids.map((id) => `<span class="chip" style="--c:${bondColor(BOND_BY_ID[id])}">${BOND_BY_ID[id].name}</span>`).join('');
 }
 
-function showOverlay(html: string): HTMLElement {
+/** dim=true：对局中弹出的浮层，压暗并模糊战场；否则铺主视觉当背景 */
+function showOverlay(html: string, dim = false): HTMLElement {
   const o = $('#overlay');
   o.innerHTML = `<div class="sheet">${html}</div>`;
+  o.classList.toggle('dim', dim);
   o.classList.add('show');
+  o.scrollTop = 0;
   return o;
+}
+
+/** 卡组卡片上扇形摊开的三张代表牌：费用最高的放中间 */
+function deckFan(d: DeckDef): HTMLElement {
+  const fan = document.createElement('div');
+  fan.className = 'fan';
+  const picks = [...new Set(d.cards)].map((id) => CARD_BY_ID[id]).sort((a, b) => b.cost - a.cost).slice(0, 3);
+  const order = [picks[1], picks[0], picks[2]].filter(Boolean);
+  order.forEach((card, i) => {
+    const el = cardEl(card);
+    el.classList.remove('legend');
+    el.style.setProperty('--dx', `${(i - 1) * 56}px`);
+    el.style.setProperty('--rot', `${(i - 1) * 9}deg`);
+    el.style.setProperty('--dy', i === 1 ? '-6px' : '6px');
+    el.style.zIndex = i === 1 ? '2' : '1';
+    fan.appendChild(el);
+  });
+  return fan;
 }
 
 function showStart(): void {
@@ -456,55 +494,80 @@ function showStart(): void {
   let foe = 'random';
   const draw = () => {
     const o = showOverlay(`
-      <h1 class="title">翼烬战线</h1>
-      <div class="subtitle">天使 vs 恶魔 · 2D 卡牌 × 3D 战场</div>
-      <h3>选择你的卡组</h3>
+      <div class="hero">
+        <img class="emblem" src="/ui/logo_emblem.png" alt="">
+        <h1 class="title">翼烬战线</h1>
+        <div class="subtitle">天使 vs 恶魔 · 卡牌对战</div>
+      </div>
+      <div class="section-title">选择你的卡组</div>
       <div class="deck-grid">${DECKS.map((d) => `
-        <div class="deck ${d.id === mine ? 'picked' : ''}" data-deck="${d.id}">
-          <div class="thumbs">${[...new Set(d.cards)].filter((_, i) => i % 3 === 0).slice(0, 4).map((id) => `<img src="/cards/${id}.jpg" alt="">`).join('')}</div>
+        <div class="deck side-${d.side} ${d.id === mine ? 'picked' : ''}" data-deck="${d.id}">
+          <img class="crest" src="/ui/crest_${d.side}.png" alt="">
+          <div class="fan-slot"></div>
           <h4>${d.name}</h4><p>${d.blurb}</p><div class="chips">${bondChips(d.bonds)}</div>
         </div>`).join('')}
       </div>
-      <h3>对手卡组</h3>
-      <div class="row">${[{ id: 'random', name: '随机' }, ...DECKS].map((d) => `<button class="pill ${d.id === foe ? 'picked' : ''}" data-foe="${d.id}">${d.name}</button>`).join('')}</div>
-      <h3>规则</h3>
-      <ol class="rules">${RULES.map((r) => `<li>${r}</li>`).join('')}</ol>
-      <div class="center"><button class="primary" id="btn-start">开始对局</button><button class="ghost" id="btn-gallery">查看全部卡牌与羁绊</button></div>`);
-    o.querySelectorAll<HTMLElement>('[data-deck]').forEach((el) => el.addEventListener('click', () => { mine = el.dataset.deck!; draw(); }));
+      <div class="foe-row"><span>对手</span>${[{ id: 'random', name: '随机' }, ...DECKS].map((d) => `<button class="pill ${d.id === foe ? 'picked' : ''}" data-foe="${d.id}">${d.name}</button>`).join('')}</div>
+      <div class="center">
+        <button class="btn ghost" id="btn-gallery">卡牌图鉴</button>
+        <button class="btn" id="btn-start">开始对局</button>
+        <button class="btn ghost" id="btn-rules">游戏规则</button>
+      </div>`);
+    o.querySelectorAll<HTMLElement>('[data-deck]').forEach((el) => {
+      el.querySelector('.fan-slot')!.replaceWith(deckFan(DECK_BY_ID[el.dataset.deck!]));
+      el.addEventListener('click', () => { mine = el.dataset.deck!; draw(); });
+    });
     o.querySelectorAll<HTMLElement>('[data-foe]').forEach((el) => el.addEventListener('click', () => { foe = el.dataset.foe!; draw(); }));
     o.querySelector('#btn-start')!.addEventListener('click', () => {
       const foeId = foe === 'random' ? DECKS[Math.floor(Math.random() * DECKS.length)].id : foe;
       void startGame(mine, foeId);
     });
     o.querySelector('#btn-gallery')!.addEventListener('click', () => showCodex(true));
+    o.querySelector('#btn-rules')!.addEventListener('click', () => showRules(true));
   };
   draw();
 }
 
-function showCodex(fromStart = false): void {
+function showRules(fromStart = false): void {
   const o = showOverlay(`
-    <h3>全部羁绊</h3>
+    <div class="section-title">游戏规则</div>
+    <div class="panel box"><ol class="rules">${RULES.map((r) => `<li>${r}</li>`).join('')}</ol></div>
+    <div class="center"><button class="btn ghost" id="btn-close">返回</button></div>`, !fromStart);
+  o.querySelector('#btn-close')!.addEventListener('click', () => (fromStart ? showStart() : showCodex(false)));
+}
+
+function showCodex(fromStart = false): void {
+  const themes = Object.keys(THEME_INFO) as (keyof typeof THEME_INFO)[];
+  const o = showOverlay(`
+    <div class="section-title">羁绊</div>
     <div class="codex-grid" id="codex-bonds"></div>
-    <h3>全部卡牌（${CARDS.length} 张）</h3>
-    <div class="gallery" id="codex-cards"></div>
-    <h3>规则</h3>
-    <ol class="rules">${RULES.map((r) => `<li>${r}</li>`).join('')}</ol>
-    <div class="center"><button class="primary" id="btn-close">返回</button></div>`);
+    <div class="section-title">卡牌 · ${CARDS.length} 张</div>
+    ${themes.map((t) => `
+      <div class="theme-row" style="color:${THEME_INFO[t].color}"><img src="/ui/theme_${t}.png" alt="">${THEME_INFO[t].name}<small>${THEME_INFO[t].faction === 'angel' ? '天使' : '恶魔'} · ${THEME_INFO[t].blurb}</small></div>
+      <div class="gallery" data-theme="${t}"></div>`).join('')}
+    <div class="center"><button class="btn ghost" id="btn-rules">游戏规则</button><button class="btn" id="btn-close">返回</button></div>`, !fromStart);
   const sig = fromStart ? [] : view.bonds[0];
   for (const def of BONDS) o.querySelector('#codex-bonds')!.appendChild(bondEl(def, sig, null));
-  for (const card of CARDS) o.querySelector('#codex-cards')!.appendChild(cardEl(card));
+  for (const card of CARDS) o.querySelector(`.gallery[data-theme="${card.theme}"]`)!.appendChild(cardEl(card));
   o.querySelector('#btn-close')!.addEventListener('click', () => (fromStart ? showStart() : o.classList.remove('show')));
+  o.querySelector('#btn-rules')!.addEventListener('click', () => showRules(fromStart));
 }
 
 function showResult(): void {
   const w = state.winner;
   const title = w === 0 ? '胜　利' : w === 1 ? '落　败' : '平　局';
   const o = showOverlay(`
-    <div class="result">
+    <div class="result ${w === 0 ? 'win' : 'lose'}">
+      <img class="emblem" src="/ui/result_${w === 0 ? 'victory' : 'defeat'}.png" alt="">
       <h1 class="title">${title}</h1>
-      <div class="subtitle">${decks[0].name} vs ${decks[1].name} · 共 ${Math.ceil(state.turn / 2)} 轮 · 圣所 ${state.players[0].sanctum} : ${state.players[1].sanctum}</div>
-      <div class="center"><button class="primary" id="btn-again">再来一局</button><button class="ghost" id="btn-rematch">同卡组重赛</button></div>
-    </div>`);
+      <div class="subtitle">${decks[0].name} vs ${decks[1].name}</div>
+      <div><div class="result-stats">
+        <div><b>${Math.ceil(state.turn / 2)}</b>轮数</div>
+        <div><b>${state.players[0].sanctum}</b>我方圣所</div>
+        <div><b>${state.players[1].sanctum}</b>对手圣所</div>
+      </div></div>
+      <div class="center"><button class="btn ghost" id="btn-rematch">同卡组重赛</button><button class="btn" id="btn-again">再来一局</button></div>
+    </div>`, true);
   o.querySelector('#btn-again')!.addEventListener('click', () => showStart());
   o.querySelector('#btn-rematch')!.addEventListener('click', () => void startGame(decks[0].id, decks[1].id));
 }

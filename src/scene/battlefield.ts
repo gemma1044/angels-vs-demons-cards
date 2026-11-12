@@ -1077,11 +1077,11 @@ export class Battlefield {
       const s = units[a.uid];
       if (!s || a.dead) continue;
       a.hp = s.hp;
-      const kw = s.keywords.map((k) => `<i class="kw ${s.bonus.keywords.includes(k) ? 'buff' : ''}">${KEYWORD_INFO[k].name}</i>`).join('');
+      const kw = s.keywords.map((k) => `<i class="kw ${s.bonus.keywords.includes(k) ? 'buff' : ''}" style="background-image:url(/ui/kw_${k}.png)" title="${KEYWORD_INFO[k].name}"></i>`).join('');
       a.label.innerHTML =
-        `<span class="atk ${s.bonus.atk > 0 ? 'buff' : ''}">⚔<b>${s.atk}</b></span>` +
-        `<span class="hp ${s.hp < s.maxHp ? 'hurt' : s.bonus.hp > 0 ? 'buff' : ''}">♥<b>${s.hp}</b></span>` +
-        (s.armor > 0 ? `<span class="armor ${s.bonus.armor > 0 ? 'buff' : ''}">⛨<b>${s.armor}</b></span>` : '') +
+        `<span class="badge atk ${s.bonus.atk > 0 ? 'buff' : ''}"><b>${s.atk}</b></span>` +
+        `<span class="badge hp ${s.hp < s.maxHp ? 'hurt' : s.bonus.hp > 0 ? 'buff' : ''}"><b>${s.hp}</b></span>` +
+        (s.armor > 0 ? `<span class="badge armor ${s.bonus.armor > 0 ? 'buff' : ''}"><b>${s.armor}</b></span>` : '') +
         (kw ? `<span class="kws">${kw}</span>` : '');
     }
   }
