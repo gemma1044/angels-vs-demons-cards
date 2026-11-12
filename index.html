@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>翼烬战线 · 天使 vs 恶魔</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="field"></div>
+
+      <header id="enemy-hud" class="hud"></header>
+
+      <aside id="bonds-panel">
+        <div class="panel-title">羁绊 <button id="btn-codex" class="link">全部规则</button></div>
+        <div class="bond-group"><h4>我方</h4><div id="bonds-0" class="bond-list"></div></div>
+        <div class="bond-group"><h4>对手</h4><div id="bonds-1" class="bond-list"></div></div>
+      </aside>
+
+      <aside id="side-panel">
+        <div id="turn-info"></div>
+        <button id="btn-end" class="primary">开战<small>结束回合</small></button>
+        <div id="log"></div>
+      </aside>
+
+      <div id="preview"></div>
+      <div id="banner"></div>
+      <div id="toasts"></div>
+
+      <footer id="bottom">
+        <div id="player-hud" class="hud"></div>
+        <div id="hand-wrap">
+          <div id="hint"></div>
+          <div id="hand"></div>
+        </div>
+      </footer>
+
+      <div id="overlay"></div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
