@@ -99,9 +99,9 @@ export const BONDS: BondDef[] = [
     { text: '蚀械单位 +2 生命', mod: { hp: 2 } },
     { text: '蚀械单位 +1 攻击 +1 护甲', mod: { atk: 1, armor: 1 } }),
   // —— 天使 + 恶魔混编 ——
-  pairBond('forge', '同炉', 'mech', 'rust', { text: '机枢与蚀械单位 +1 攻击 +2 生命', mod: { atk: 1, hp: 2 } }),
+  pairBond('forge', '同炉', 'mech', 'rust', { text: '机枢与蚀械单位 +1 攻击 +2 生命 +1 护甲', mod: { atk: 1, hp: 2, armor: 1 } }),
   pairBond('holyfire', '圣火', 'icon', 'lava', { text: '圣像与熔渊单位 +2 生命；开战后灼烧敌方圣所 1', mod: { hp: 2 }, burnOnTurnEnd: 1 }),
-  pairBond('inknight', '墨夜', 'ink', 'goth', { text: '云篆与夜棘单位 +1 攻击 +2 生命并获得「吸取」', mod: { atk: 1, hp: 2, keywords: ['lifesteal'] } }),
+  pairBond('inknight', '墨夜', 'ink', 'goth', { text: '云篆与夜棘单位 +1 攻击 +1 生命并获得「吸取」', mod: { atk: 1, hp: 1, keywords: ['lifesteal'] } }),
   // —— 纯阵营 ——
   {
     id: 'firmament',

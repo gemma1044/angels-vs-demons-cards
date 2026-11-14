@@ -162,7 +162,7 @@ describe('战斗与伤害', () => {
     endTurn(s);
     expect(s.players[1].sanctum).toBe(SANCTUM_HP - 5);
   });
-  it('被攻击的单位同时反击', () => {
+  it('被攻击的单位活下来就会反击', () => {
     const s = blank();
     const a = put(s, 0, 1, 'icon_shield'); // 3/6 护甲 1
     const b = put(s, 1, 1, 'lava_brute'); // 5/5
@@ -170,20 +170,25 @@ describe('战斗与伤害', () => {
     expect(b.damage).toBe(3);
     expect(a.damage).toBe(4); // 5 - 护甲 1
   });
-  it('反击与攻击同时结算：双方可以同归于尽；反击不触发吸取', () => {
+  it('一击打死的单位来不及反击', () => {
     const s = blank();
-    s.players[1].sanctum = 10;
-    put(s, 0, 0, 'ink_blade'); // 3/2
-    put(s, 1, 0, 'goth_bat'); // 1/3 吸取，先受 2 伤
-    s.players[1].board[0]!.damage = 2;
-    put(s, 0, 2, 'mech_drone'); // 2/1
+    const a = put(s, 0, 2, 'mech_drone'); // 2/1
     put(s, 1, 2, 'lava_hound'); // 3/2
     endTurn(s);
-    expect(s.players[1].board[0]).toBeNull();
-    expect(s.players[0].board[0]!.damage).toBe(1);
-    expect(s.players[1].sanctum).toBe(10);
-    expect(s.players[0].board[2]).toBeNull();
     expect(s.players[1].board[2]).toBeNull();
+    expect(s.players[0].board[2]).toBe(a);
+    expect(a.damage).toBe(0);
+  });
+  it('反击不触发吸取', () => {
+    const s = blank();
+    s.players[1].sanctum = 10;
+    const a = put(s, 0, 0, 'mech_drone'); // 2/1
+    const b = put(s, 1, 0, 'goth_bat'); // 1/3 吸取
+    endTurn(s);
+    expect(b.damage).toBe(2);
+    expect(s.players[0].board[0]).toBeNull(); // 被反击打死
+    expect(a.damage).toBe(1);
+    expect(s.players[1].sanctum).toBe(10);
   });
   it('没被攻击的单位不会在对方回合出手', () => {
     const s = blank();

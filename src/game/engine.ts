@@ -13,6 +13,9 @@
 import { CARD_BY_ID, type CardDef, type Keyword } from './cards';
 import { bondModFor, bondSignature, bondTurnEndBurn, bondTurnStartHeal, type BondMember } from './bonds';
 
+/** 反击规则：simultaneous = 被打的单位总会还手（哪怕这一下被打死）；survivor = 活下来才还手；none = 不还手 */
+export const COMBAT: { counter: 'simultaneous' | 'survivor' | 'none' } = { counter: 'survivor' };
+
 export const LANES = 4;
 export const SANCTUM_HP = 30;
 export const MAX_ENERGY = 8;
@@ -331,12 +334,13 @@ export function endTurn(state: GameState): GameEvent[] {
     events.push({ t: 'attack', player, lane, uid: unit.uid, targetUid: target ? target.uid : null });
     if (target) {
       let result = { dealt: 0, overflow: 0, died: false };
-      // 反击与攻击同时结算：被打的单位即使阵亡也会还手（反击不触发贯穿/吸取）
+      // 反击（不触发贯穿/吸取）。规则见 COMBAT.counter。
       const counter = unitStats(state, target).atk;
       withBoardChange(state, events, () => {
         result = damageUnit(state, target, stats.atk, events);
         const dead = result.died ? [target] : [];
-        if (counter > 0 && damageUnit(state, unit, counter, events).died) dead.push(unit);
+        const strikesBack = COMBAT.counter === 'simultaneous' || (COMBAT.counter === 'survivor' && !result.died);
+        if (strikesBack && counter > 0 && damageUnit(state, unit, counter, events).died) dead.push(unit);
         return dead;
       });
       if (stats.keywords.includes('lifesteal')) healSanctum(state, player, result.dealt, 'lifesteal', events);

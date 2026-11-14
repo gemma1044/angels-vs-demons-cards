@@ -315,3 +315,13 @@ button.link:hover { opacity: 1; background: rgba(240, 198, 116, 0.12); }
   .codex-grid { grid-template-columns: repeat(2, 1fr); }
   .title { font-size: 52px; }
 }
+
+/* ───────── 开战预览、难度 ───────── */
+#forecast { order: 3; min-height: 40px; margin-bottom: -6px; text-align: center; font-size: 12.5px; color: var(--text); text-shadow: 0 1px 3px #000; line-height: 1.45; }
+#forecast small { display: block; font-size: 11px; color: var(--dim); letter-spacing: 1px; }
+#forecast b { font: 700 16px/1 var(--num); } #forecast b.bad { color: #ff8d80; } #forecast b.good { color: var(--good); }
+#forecast i { font-style: normal; color: var(--gold-lo); margin: 0 5px; }
+.unit-label .fc { margin-left: 5px; padding: 1px 6px 0; border-radius: 9px; font: 700 14px/1.25 var(--num); color: #ffb3a8; background: rgba(150, 30, 20, 0.6); border: 1px solid rgba(255, 110, 90, 0.6); }
+.unit-label .fc.dies { font: 700 11px/1.5 -apple-system, 'PingFang SC', sans-serif; color: #fff; background: #b3261e; border-color: #ff8d80; }
+.foe-row + .foe-row { margin-top: 10px; }
+.pill small { margin-left: 8px; font-size: 11px; opacity: 0.65; }

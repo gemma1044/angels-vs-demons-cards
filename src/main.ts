@@ -2,12 +2,12 @@
 // 引擎每个动作吐出事件列表，这里按顺序播放：3D 演出 + 更新状态栏/手牌/羁绊面板。
 
 import { preloadModels } from './scene/models';
-import { chooseMove } from './game/ai';
+import { chooseMove, chooseMoveEasy } from './game/ai';
 import { BOND_BY_ID, BONDS, countMembers, type BondDef } from './game/bonds';
 import { CARD_BY_ID, CARDS, KEYWORD_INFO, THEME_INFO, type CardDef } from './game/cards';
 import { DECK_BY_ID, DECKS, type DeckDef } from './game/decks';
 import {
-  canPlay, createGame, endTurn, LANES, membersOf, playCard, SANCTUM_HP, TURN_LIMIT, unitsOf, unitStats,
+  canPlay, cloneState, createGame, endTurn, LANES, membersOf, playCard, SANCTUM_HP, TURN_LIMIT, unitsOf, unitStats,
   type GameEvent, type GameState, type PlayerId,
 } from './game/engine';
 import { Battlefield } from './scene/battlefield';
@@ -95,6 +95,10 @@ const view = {
   bonds: [[], []] as [string[], string[]],
 };
 let freshBonds = new Set<string>();
+/** 电脑难度：easy 不做预判，normal 会先算一步再出牌 */
+type Difficulty = 'easy' | 'normal';
+let difficulty: Difficulty = localStorage.getItem('avd-difficulty') === 'normal' ? 'normal' : 'easy';
+let hoverLane = -1;
 
 const who = (p: PlayerId) => (p === 0 ? '你' : '对手');
 
@@ -197,9 +201,46 @@ function renderHand(enterFrom = -1): void {
   if (state.winner !== null) hint.textContent = '';
   else if (state.current !== 0) hint.textContent = '对手行动中…';
   else if (busy) hint.textContent = '';
-  else if (selected !== null) hint.textContent = '点击发光的战线部署（或按数字键 1–4），Esc 取消';
+  else if (selected !== null) hint.textContent = '把鼠标移到发光的战线上可预览战果，点击部署（或按数字键 1–4），Esc 取消';
   else if (view.hand.some((id) => CARD_BY_ID[id].cost <= state.players[0].energy) && hasLane) hint.textContent = '选一张亮着的手牌部署，或点「开战」让场上单位进攻';
   else hint.textContent = '没有可出的牌了，点「开战」结束回合';
+  updateForecast();
+}
+
+/** 开战预览：在副本上模拟「（先部署选中的牌，再）开战」，把结果标到单位标签和右侧提示上 */
+function updateForecast(): void {
+  const box = $('#forecast');
+  if (!state || busy || state.current !== 0 || state.winner !== null) {
+    field.setForecast(null);
+    box.innerHTML = '';
+    return;
+  }
+  const sim = cloneState(state);
+  const withCard = selected !== null && hoverLane >= 0 && canPlay(sim, 0, selected, hoverLane);
+  const events: GameEvent[] = withCard ? playCard(sim, selected!, hoverLane) : [];
+  for (const e of endTurn(sim)) {
+    if (e.t === 'turnStart') break; // 只看我方这一下，不算对手之后的回合
+    events.push(e);
+  }
+  const units: Record<number, { dmg: number; dies: boolean }> = {};
+  const sanctum = [0, 0];
+  let kills = 0;
+  let losses = 0;
+  for (const e of events) {
+    if (e.t === 'damage') (units[e.uid] ??= { dmg: 0, dies: false }).dmg += e.amount;
+    else if (e.t === 'death') {
+      (units[e.uid] ??= { dmg: 0, dies: false }).dies = true;
+      if (e.player === 1) kills++;
+      else losses++;
+    } else if (e.t === 'sanctumDamage') sanctum[e.player] -= e.amount;
+    else if (e.t === 'sanctumHeal') sanctum[e.player] += e.amount;
+  }
+  field.setForecast(units);
+  const parts = [`对手圣所 <b class="${sanctum[1] < 0 ? 'bad' : ''}">${sanctum[1] < 0 ? '−' + -sanctum[1] : '不变'}</b>`];
+  if (sanctum[0] > 0) parts.push(`我方圣所 <b class="good">+${sanctum[0]}</b>`);
+  if (kills) parts.push(`击杀 <b class="good">${kills}</b>`);
+  if (losses) parts.push(`我方阵亡 <b class="bad">${losses}</b>`);
+  box.innerHTML = `<small>${withCard ? '部署到这条战线后开战' : '现在开战'}，预计</small>${parts.join('<i>·</i>')}`;
 }
 
 function select(index: number | null): void {
@@ -408,7 +449,7 @@ async function playerEndTurn(): Promise<void> {
     renderHud();
     renderHand();
     await field.wait(0.45);
-    const move = chooseMove(state);
+    const move = difficulty === 'easy' ? chooseMoveEasy(state) : chooseMove(state);
     if (seq !== gameSeq) return;
     if (move) {
       const events = playCard(state, move.handIndex, move.lane);
@@ -422,6 +463,10 @@ async function playerEndTurn(): Promise<void> {
 }
 
 field.onLaneClick = (lane) => void playerPlay(lane);
+field.onLaneHover = (lane) => {
+  hoverLane = lane;
+  if (selected !== null) updateForecast();
+};
 field.onUnitHover = (uid) => {
   const box = $('#preview');
   const card = uid === null ? null : field.actorCard(uid);
@@ -450,7 +495,7 @@ const RULES = [
   '战场有 4 条<b>战线</b>，每条战线每方只能站 1 个单位。',
   '每回合<b>灵息</b>上限 +1（最多 8）并回满，抽 1 张牌。花灵息把手牌部署到己方空战线。先手首回合不抽牌，后手首回合多 1 点临时灵息。',
   '点<b>开战</b>结束回合：己方单位从左到右依次攻击<b>正对面</b>的敌人；对面没人就直接打圣所。',
-  '被攻击的单位会<b>同时反击</b>（反击不触发贯穿和吸取）；刚部署的单位本回合不主动进攻，<b>突袭</b>除外。',
+  '被攻击的单位如果<b>活了下来</b>就会<b>反击</b>，一击打死则来不及还手（反击不触发贯穿和吸取）；刚部署的单位本回合不主动进攻，<b>突袭</b>除外。',
   '<b>护甲</b>：每次受伤 −护甲值（最少 1）。<b>贯穿</b>：击杀后溢出伤害打圣所。<b>吸取</b>：造成伤害时己方圣所恢复等量生命。',
   '<b>羁绊</b>只看自己场上的单位，随时重算：同主题 2 个/3 个两档；特定天使主题 + 恶魔主题合计 3 个触发混编羁绊；全天使或全恶魔还有纯阵营羁绊。',
   '羁绊成员阵亡后加成立刻消失；因此掉生命上限的单位至少保留 1 点生命。',
@@ -508,6 +553,7 @@ function showStart(): void {
         </div>`).join('')}
       </div>
       <div class="foe-row"><span>对手</span>${[{ id: 'random', name: '随机' }, ...DECKS].map((d) => `<button class="pill ${d.id === foe ? 'picked' : ''}" data-foe="${d.id}">${d.name}</button>`).join('')}</div>
+      <div class="foe-row"><span>难度</span>${([['easy', '简单', '电脑随手出牌'], ['normal', '普通', '电脑会先算一步']] as const).map(([id, name, tip]) => `<button class="pill ${id === difficulty ? 'picked' : ''}" data-diff="${id}" title="${tip}">${name}<small>${tip}</small></button>`).join('')}</div>
       <div class="center">
         <button class="btn ghost" id="btn-gallery">卡牌图鉴</button>
         <button class="btn" id="btn-start">开始对局</button>
@@ -517,6 +563,11 @@ function showStart(): void {
       el.querySelector('.fan-slot')!.replaceWith(deckFan(DECK_BY_ID[el.dataset.deck!]));
       el.addEventListener('click', () => { mine = el.dataset.deck!; draw(); });
     });
+    o.querySelectorAll<HTMLElement>('[data-diff]').forEach((el) => el.addEventListener('click', () => {
+      difficulty = el.dataset.diff as Difficulty;
+      localStorage.setItem('avd-difficulty', difficulty);
+      draw();
+    }));
     o.querySelectorAll<HTMLElement>('[data-foe]').forEach((el) => el.addEventListener('click', () => { foe = el.dataset.foe!; draw(); }));
     o.querySelector('#btn-start')!.addEventListener('click', () => {
       const foeId = foe === 'random' ? DECKS[Math.floor(Math.random() * DECKS.length)].id : foe;
@@ -587,7 +638,7 @@ async function startGame(mineId: string, foeId: string, seed = (Math.random() * 
   view.maxEnergy = [0, 0];
   view.hand = [];
   view.bonds = [[], []];
-  log(`对局开始：${decks[0].name} vs ${decks[1].name}。你先手。`, 'sys');
+  log(`对局开始：${decks[0].name} vs ${decks[1].name}。你先手，电脑难度：${difficulty === 'easy' ? '简单' : '普通'}。`, 'sys');
   await play(created.events);
 }
 

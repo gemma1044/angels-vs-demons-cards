@@ -141,6 +141,9 @@ class Actor {
   hp = 0;
   phase = Math.random() * 6;
   dead = false;
+  /** 标签的数值部分和「开战预览」部分，分开存，互不覆盖 */
+  base = '';
+  fc = '';
   private flashDirty = false;
 
   constructor(public uid: number, public player: PlayerId, public lane: number, public card: CardDef) {
@@ -272,6 +275,7 @@ export class Battlefield {
 
   onLaneClick: (lane: number) => void = () => {};
   onUnitHover: (uid: number | null) => void = () => {};
+  onLaneHover: (lane: number) => void = () => {};
 
   constructor(private container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'high-performance' });
@@ -300,10 +304,15 @@ export class Battlefield {
 
     const canvas = this.renderer.domElement;
     canvas.addEventListener('pointermove', (e) => {
-      this.hoverLane = this.pickLane(e);
+      const lane = this.pickLane(e);
+      if (lane !== this.hoverLane) this.onLaneHover(lane);
+      this.hoverLane = lane;
       canvas.style.cursor = this.selectable.has(this.hoverLane) ? 'pointer' : 'default';
     });
-    canvas.addEventListener('pointerleave', () => (this.hoverLane = -1));
+    canvas.addEventListener('pointerleave', () => {
+      if (this.hoverLane !== -1) this.onLaneHover(-1);
+      this.hoverLane = -1;
+    });
     canvas.addEventListener('click', (e) => {
       const lane = this.pickLane(e);
       if (lane >= 0 && this.selectable.has(lane)) this.onLaneClick(lane);
@@ -1078,11 +1087,23 @@ export class Battlefield {
       if (!s || a.dead) continue;
       a.hp = s.hp;
       const kw = s.keywords.map((k) => `<i class="kw ${s.bonus.keywords.includes(k) ? 'buff' : ''}" style="background-image:url(/ui/kw_${k}.png)" title="${KEYWORD_INFO[k].name}"></i>`).join('');
-      a.label.innerHTML =
+      a.base =
         `<span class="badge atk ${s.bonus.atk > 0 ? 'buff' : ''}"><b>${s.atk}</b></span>` +
         `<span class="badge hp ${s.hp < s.maxHp ? 'hurt' : s.bonus.hp > 0 ? 'buff' : ''}"><b>${s.hp}</b></span>` +
         (s.armor > 0 ? `<span class="badge armor ${s.bonus.armor > 0 ? 'buff' : ''}"><b>${s.armor}</b></span>` : '') +
         (kw ? `<span class="kws">${kw}</span>` : '');
+      a.label.innerHTML = a.base + a.fc;
+    }
+  }
+
+  /** 开战预览：在单位标签上标出这一下会掉多少血、会不会阵亡；传 null 清除 */
+  setForecast(fc: Record<number, { dmg: number; dies: boolean }> | null): void {
+    for (const a of this.actors.values()) {
+      const f = fc?.[a.uid];
+      const html = f && !a.dead ? `<span class="fc ${f.dies ? 'dies' : ''}">${f.dies ? '阵亡' : `−${f.dmg}`}</span>` : '';
+      if (html === a.fc) continue;
+      a.fc = html;
+      if (a.base) a.label.innerHTML = a.base + a.fc;
     }
   }
 

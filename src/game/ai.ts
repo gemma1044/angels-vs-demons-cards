@@ -62,3 +62,18 @@ export function chooseMove(state: GameState): AiMove | null {
   }
   return best;
 }
+
+/** 简单难度：不做预判。大多数时候先出最贵的牌，放到随机的空战线；偶尔随手乱出 */
+export function chooseMoveEasy(state: GameState, rnd: () => number = Math.random): AiMove | null {
+  const player = state.current;
+  const hand = state.players[player].hand;
+  const moves: AiMove[] = [];
+  for (let h = 0; h < hand.length; h++) {
+    for (let lane = 0; lane < LANES; lane++) if (canPlay(state, player, h, lane)) moves.push({ handIndex: h, lane });
+  }
+  if (!moves.length) return null;
+  if (rnd() < 0.3) return moves[Math.floor(rnd() * moves.length)];
+  const top = Math.max(...moves.map((m) => CARD_BY_ID[hand[m.handIndex]].cost));
+  const best = moves.filter((m) => CARD_BY_ID[hand[m.handIndex]].cost === top);
+  return best[Math.floor(rnd() * best.length)];
+}
